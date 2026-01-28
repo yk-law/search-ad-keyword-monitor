@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual Environment
+venv/
+.venv/
+
+# Environment variables
+.env
+
+# Selenium / Chrome
+*.log
+
+# Output files
+output/*.json
+output/*.csv
+output/*.xlsx
+
+# OS
+.DS_Store
+Thumbs.db
