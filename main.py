@@ -4,13 +4,13 @@ import time
 import urllib.parse
 import json
 from datetime import datetime, timezone
-from elasticsearch import Elasticsearch, helpers
+
+from ocr import extract_text_from_image_bytes, has_yk_from_ocr
 
 
 # ==============================
-# BaseCrawler (공통)
+# BaseCrawler
 # ==============================
-
 
 class BaseCrawler:
     def __init__(self):
@@ -37,58 +37,75 @@ class BaseCrawler:
 # ==============================
 
 NAVER_TARGET_KEYWORDS = [
-    "YK",
-    "법무법인YK",
-    "법무법인 YK",
     "yk",
     "법무법인yk",
     "법무법인 yk",
 ]
 
-NAVER_POWERLINK_CARD_SELECTOR = "div[id^='mobilePowerLink_'] ul#power_link_body > li"
 NAVER_BRAND_CARD_SELECTOR = "div._fe_view_power_content[data-template-id='ugcItem']"
-
 NAVER_PLACE_ROOT_SELECTOR = "#place-app-root"
 NAVER_PLACE_CARD_SELECTOR = "li"
+NAVER_UGC_CARD_SELECTOR = "div[data-template-id='ugcItem']"
 
 
 # ==============================
 # Util
 # ==============================
 
-
 def load_keywords():
     with open("config/keywords.json", encoding="utf-8") as f:
         return json.load(f)["keywords"]
 
-
 def build_naver_mobile_search_url(keyword: str) -> str:
-    return "https://m.search.naver.com/search.naver?query=" + urllib.parse.quote(
-        keyword
-    )
-
+    return "https://m.search.naver.com/search.naver?query=" + urllib.parse.quote(keyword)
 
 def now_utc_iso():
     return datetime.now(timezone.utc).isoformat()
 
+def find_matched_keywords_and_snippet(card):
+    text = card.text.lower()
+    matched = [kw for kw in NAVER_TARGET_KEYWORDS if kw in text]
 
-def print_line(label: str, value: str):
-    print(f"  ▸ {label}\t{value}")
+    if not matched:
+        return None, None
+
+    snippet = card.text.replace("\n", " ")[:200]
+    return matched, snippet
+
+
+def get_thumbnail_element_from_card(card):
+    try:
+        return card.find_element(By.CSS_SELECTOR, "img")
+    except Exception:
+        return None
 
 
 # ==============================
 # NAVER: 파워링크
 # ==============================
 
-
 def find_naver_powerlink_rank(driver):
     results = []
-    cards = driver.find_elements(By.CSS_SELECTOR, NAVER_POWERLINK_CARD_SELECTOR)
+    cards = driver.find_elements(By.CSS_SELECTOR, "li.bx")
 
-    for idx, card in enumerate(cards, start=1):
-        text = card.text.lower()
-        if any(kw.lower() in text for kw in NAVER_TARGET_KEYWORDS):
-            results.append({"section": "powerlink", "rank": idx})
+    ad_rank = 0
+
+    for card in cards:
+        try:
+            card.find_element(By.CSS_SELECTOR, "a[href*='ader.naver.com']")
+        except Exception:
+            continue
+
+        ad_rank += 1
+
+        matched, snippet = find_matched_keywords_and_snippet(card)
+        if matched:
+            results.append({
+                "section": "powerlink",
+                "rank": ad_rank,
+                "matched_keywords": matched,
+                "matched_snippet": snippet,
+            })
 
     return results
 
@@ -96,7 +113,6 @@ def find_naver_powerlink_rank(driver):
 # ==============================
 # NAVER: 브랜드 콘텐츠
 # ==============================
-
 
 def find_naver_brand_content_rank(driver):
     results = []
@@ -106,8 +122,14 @@ def find_naver_brand_content_rank(driver):
         if "브랜드 콘텐츠" in block.text:
             cards = block.find_elements(By.CSS_SELECTOR, NAVER_BRAND_CARD_SELECTOR)
             for idx, card in enumerate(cards, start=1):
-                if any(kw.lower() in card.text.lower() for kw in NAVER_TARGET_KEYWORDS):
-                    results.append({"section": "brand", "rank": idx})
+                matched, snippet = find_matched_keywords_and_snippet(card)
+                if matched:
+                    results.append({
+                        "section": "brand",
+                        "rank": idx,
+                        "matched_keywords": matched,
+                        "matched_snippet": snippet,
+                    })
             break
 
     return results
@@ -117,14 +139,12 @@ def find_naver_brand_content_rank(driver):
 # NAVER: 플레이스
 # ==============================
 
-
 def has_naver_place_block(driver) -> bool:
     try:
         driver.find_element(By.CSS_SELECTOR, NAVER_PLACE_ROOT_SELECTOR)
         return True
     except Exception:
         return False
-
 
 def find_naver_place_rank(driver):
     results = []
@@ -147,107 +167,72 @@ def find_naver_place_rank(driver):
             section = "place_organic"
             rank = organic_rank
 
-        if any(kw.lower() in text for kw in NAVER_TARGET_KEYWORDS):
-            results.append({"section": section, "rank": rank})
+        matched = [kw for kw in NAVER_TARGET_KEYWORDS if kw in text]
+        if matched:
+            results.append({
+                "section": section,
+                "rank": rank,
+                "matched_keywords": matched,
+                "matched_snippet": card.text.replace("\n", " ")[:200],
+            })
 
     return results
 
 
 # ==============================
-# NAVER: 인기글 영역
+# NAVER: 타이틀 없는 UGC + OCR (스크린샷 기반)
 # ==============================
 
+def find_ugc_with_ocr(driver):
+    results = []
+    cards = driver.find_elements(By.CSS_SELECTOR, NAVER_UGC_CARD_SELECTOR)
 
-def detect_naver_popular_block(driver):
-    blocks = driver.find_elements(By.CSS_SELECTOR, "div[id^='fdr-']")
+    for idx, card in enumerate(cards, start=1):
+        text = card.text.lower()
 
-    for block in blocks:
-        try:
-            footer = block.find_element(By.TAG_NAME, "footer")
-            subject = footer.find_element(
-                By.CSS_SELECTOR, "span.fds-comps-footer-more-subject"
-            )
-            if subject.text.strip() == "인기글":
-                return block
-        except Exception:
+        if any(kw in text for kw in NAVER_TARGET_KEYWORDS):
             continue
 
-    return None
-
-
-def parse_naver_popular_block(block):
-    result = {"ads": [], "blogs": [], "cafes": []}
-    items = block.find_elements(By.CSS_SELECTOR, "div[data-template-id='ugcItem']")
-    ad_rank = 0
-
-    for item in items:
-        html = item.get_attribute("outerHTML").lower()
-        text = item.text.lower()
-
-        if "_fe_view_power_content" in html or "ader.naver.com" in html:
-            ad_rank += 1
-            result["ads"].append({"rank": ad_rank})
+        img_el = get_thumbnail_element_from_card(card)
+        if not img_el:
             continue
 
-        if not any(kw.lower() in text for kw in NAVER_TARGET_KEYWORDS):
-            continue
+        img_bytes = img_el.screenshot_as_png
+        ocr_text = extract_text_from_image_bytes(img_bytes)
 
-        try:
-            url = item.find_elements(By.CSS_SELECTOR, "a[href]")[-1].get_attribute(
-                "href"
-            )
-        except Exception:
-            continue
+        # 🔴 반드시 추가
+        print(f"[OCR][{idx}] raw='{ocr_text}'")
 
-        if "m.blog.naver.com" in url:
-            result["blogs"].append({"url": url})
-        elif "m.cafe.naver.com" in url:
-            result["cafes"].append({"url": url})
+        if has_yk_from_ocr(ocr_text):
+            print(f"[OCR MATCH][{idx}] normalized=YK")
+            results.append({
+                "section": "ugc_ocr",
+                "rank": idx,
+                "matched_keywords": ["yk"],
+                "matched_snippet": ocr_text[:200],
+            })
 
-    return result
-
-
-# ==============================
-# NAVER: 타이틀 없는 UGC
-# ==============================
-
-
-def has_naver_search_ugc_block(driver) -> bool:
-    blocks = driver.find_elements(
-        By.CSS_SELECTOR,
-        "div.spw_fsolid[data-collection='urB_coR']",
-    )
-    return len(blocks) > 0
+    return results
 
 
 # ==============================
-# Elasticsearch
+# Elasticsearch (MOCK)
 # ==============================
-
-es = Elasticsearch("http://192.168.0.185:9200")
-
 
 def es_bulk_index(index: str, documents: list) -> int:
     if not documents:
         return 0
 
-    actions = []
-    for doc in documents:
-        actions.append(
-            {
-                "_index": index,
-                "_source": doc,
-            }
-        )
+    print(f"\n[ES MOCK] index = {index}")
+    for i, doc in enumerate(documents, start=1):
+        print(f"  ({i}) {json.dumps(doc, ensure_ascii=False)}")
 
-    success, _ = helpers.bulk(es, actions)
-    return success
+    return len(documents)
 
 
 # ==============================
 # main
 # ==============================
-
 
 def main():
     crawler = BaseCrawler()
@@ -265,94 +250,24 @@ def main():
             ts = now_utc_iso()
             bulk_docs = []
 
-            # 파워링크
             for r in find_naver_powerlink_rank(crawler.driver):
-                bulk_docs.append(
-                    {
-                        "source": "naver",
-                        "query": keyword,
-                        "section": r["section"],
-                        "rank": r["rank"],
-                        "@timestamp": ts,
-                    }
-                )
+                r.update({"source": "naver", "query": keyword, "@timestamp": ts})
+                bulk_docs.append(r)
 
-            # 브랜드
             for r in find_naver_brand_content_rank(crawler.driver):
-                bulk_docs.append(
-                    {
-                        "source": "naver",
-                        "query": keyword,
-                        "section": r["section"],
-                        "rank": r["rank"],
-                        "@timestamp": ts,
-                    }
-                )
+                r.update({"source": "naver", "query": keyword, "@timestamp": ts})
+                bulk_docs.append(r)
 
-            # 플레이스
             if has_naver_place_block(crawler.driver):
                 for r in find_naver_place_rank(crawler.driver):
-                    bulk_docs.append(
-                        {
-                            "source": "naver",
-                            "query": keyword,
-                            "section": r["section"],
-                            "rank": r["rank"],
-                            "@timestamp": ts,
-                        }
-                    )
+                    r.update({"source": "naver", "query": keyword, "@timestamp": ts})
+                    bulk_docs.append(r)
 
-            # 인기글
-            popular_block = detect_naver_popular_block(crawler.driver)
-            if popular_block:
-                popular = parse_naver_popular_block(popular_block)
-
-                for ad in popular["ads"]:
-                    bulk_docs.append(
-                        {
-                            "source": "naver",
-                            "query": keyword,
-                            "section": "popular_ad",
-                            "rank": ad["rank"],
-                            "@timestamp": ts,
-                        }
-                    )
-
-                for b in popular["blogs"]:
-                    bulk_docs.append(
-                        {
-                            "source": "naver",
-                            "query": keyword,
-                            "section": "popular_blog",
-                            "rank": None,
-                            "url": b["url"],
-                            "@timestamp": ts,
-                        }
-                    )
-
-                for c in popular["cafes"]:
-                    bulk_docs.append(
-                        {
-                            "source": "naver",
-                            "query": keyword,
-                            "section": "popular_cafe",
-                            "rank": None,
-                            "url": c["url"],
-                            "@timestamp": ts,
-                        }
-                    )
-
-            else:
-                if has_naver_search_ugc_block(crawler.driver):
-                    bulk_docs.append(
-                        {
-                            "source": "naver",
-                            "query": keyword,
-                            "section": "search_ugc",
-                            "rank": None,
-                            "@timestamp": ts,
-                        }
-                    )
+            # 🔴 최종 보루: OCR
+            if not bulk_docs:
+                for r in find_ugc_with_ocr(crawler.driver):
+                    r.update({"source": "naver", "query": keyword, "@timestamp": ts})
+                    bulk_docs.append(r)
 
             if bulk_docs:
                 es_bulk_index(index_name, bulk_docs)
