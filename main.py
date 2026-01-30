@@ -1,6 +1,6 @@
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-import time
+import time, random
 import urllib.parse
 import json
 from datetime import datetime, timezone
@@ -49,9 +49,9 @@ NAVER_TARGET_KEYWORDS = [
 ]
 
 NAVER_BRAND_CARD_SELECTOR = "div._fe_view_power_content[data-template-id='ugcItem']"
+NAVER_UGC_CARD_SELECTOR = "div[data-template-id='ugcItem']"
 NAVER_PLACE_ROOT_SELECTOR = "#place-app-root"
 NAVER_PLACE_CARD_SELECTOR = "li"
-NAVER_UGC_CARD_SELECTOR = "div[data-template-id='ugcItem']"
 
 
 # ==============================
@@ -74,6 +74,11 @@ def now_utc_iso():
     return datetime.now(timezone.utc).isoformat()
 
 
+def save_element_screenshot(element, path: str):
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    element.screenshot(path)
+
+
 def get_thumbnail_element_from_card(card):
     try:
         return card.find_element(
@@ -85,16 +90,16 @@ def get_thumbnail_element_from_card(card):
 
 
 def get_card_url(card):
-    # 1️⃣ 게시글 링크 (쿼리스트링 포함) 최우선
+    # 1️⃣ heatmap link
     try:
         a = card.find_element(By.CSS_SELECTOR, "a[data-heatmap-target='.link'][href]")
         return a.get_attribute("href")
     except Exception:
         pass
 
-    # 2️⃣ fallback: 게시글 ID 패턴
+    # 2️⃣ cafe fallback
     try:
-        a = card.find_element(By.CSS_SELECTOR, "a[href*='/'][href*='?art=']")
+        a = card.find_element(By.CSS_SELECTOR, "a[href*='?art=']")
         return a.get_attribute("href")
     except Exception:
         pass
@@ -107,9 +112,38 @@ def get_card_url(card):
         return None
 
 
-def save_element_screenshot(element, path: str):
-    Path(path).parent.mkdir(parents=True, exist_ok=True)
-    element.screenshot(path)
+def is_brand_content(card) -> bool:
+    # ader 링크 기반
+    try:
+        card.find_element(By.CSS_SELECTOR, "a[href*='ader.naver.com']")
+        return True
+    except Exception:
+        pass
+
+    # 내부 플래그 기반
+    cls = card.get_attribute("class") or ""
+    return "_fe_view_power_content" in cls
+
+
+def resolve_ugc_content_type(url: str) -> str:
+    if not url:
+        return url
+
+    if "m.cafe.naver.com" in url:
+        return "카페"
+
+    if "m.blog.naver.com" in url:
+        return "블로그"
+
+    return url
+
+
+# 지식인 여부 판단
+def is_kin_content(url: str) -> bool:
+    if not url:
+        return False
+
+    return "m.kin.naver.com" in url or "kin.naver.com" in url
 
 
 # ==============================
@@ -120,7 +154,7 @@ def save_element_screenshot(element, path: str):
 def find_naver_powerlink_rank(driver):
     results = []
     cards = driver.find_elements(By.CSS_SELECTOR, "li.bx")
-    ad_rank = 0
+    rank = 0
 
     for card in cards:
         try:
@@ -128,16 +162,15 @@ def find_naver_powerlink_rank(driver):
         except Exception:
             continue
 
-        ad_rank += 1
+        rank += 1
         text = card.text.lower()
         matched = [kw for kw in NAVER_TARGET_KEYWORDS if kw.lower() in text]
 
         if matched:
             results.append(
                 {
-                    "section": "powerlink",
-                    "rank": ad_rank,
-                    "matched_keywords": matched,
+                    "section": "파워링크",
+                    "rank": rank,
                     "matched_snippet": card.text.replace("\n", " ")[:200],
                 }
             )
@@ -146,30 +179,26 @@ def find_naver_powerlink_rank(driver):
 
 
 # ==============================
-# NAVER: 브랜드 콘텐츠
+# NAVER: 브랜드콘텐츠
 # ==============================
 
 
 def find_naver_brand_content_rank(driver):
     results = []
-    blocks = driver.find_elements(By.CSS_SELECTOR, "div[id^='fdr-']")
+    cards = driver.find_elements(By.CSS_SELECTOR, NAVER_BRAND_CARD_SELECTOR)
 
-    for block in blocks:
-        if "브랜드 콘텐츠" in block.text:
-            cards = block.find_elements(By.CSS_SELECTOR, NAVER_BRAND_CARD_SELECTOR)
-            for idx, card in enumerate(cards, start=1):
-                text = card.text.lower()
-                matched = [kw for kw in NAVER_TARGET_KEYWORDS if kw.lower() in text]
-                if matched:
-                    results.append(
-                        {
-                            "section": "brand",
-                            "rank": idx,
-                            "matched_keywords": matched,
-                            "matched_snippet": card.text.replace("\n", " ")[:200],
-                        }
-                    )
-            break
+    for idx, card in enumerate(cards, start=1):
+        text = card.text.lower()
+        matched = [kw for kw in NAVER_TARGET_KEYWORDS if kw.lower() in text]
+
+        if matched:
+            results.append(
+                {
+                    "section": "브랜드콘텐츠",
+                    "rank": idx,
+                    "matched_snippet": card.text.replace("\n", " ")[:200],
+                }
+            )
 
     return results
 
@@ -201,11 +230,11 @@ def find_naver_place_rank(driver):
 
         if is_ad:
             ad_rank += 1
-            section = "place_ad"
+            section = "플레이스_광고"
             rank = ad_rank
         else:
             organic_rank += 1
-            section = "place_organic"
+            section = "플레이스_일반"
             rank = organic_rank
 
         matched = [kw for kw in NAVER_TARGET_KEYWORDS if kw.lower() in text]
@@ -214,7 +243,6 @@ def find_naver_place_rank(driver):
                 {
                     "section": section,
                     "rank": rank,
-                    "matched_keywords": matched,
                     "matched_snippet": card.text.replace("\n", " ")[:200],
                 }
             )
@@ -223,69 +251,62 @@ def find_naver_place_rank(driver):
 
 
 # ==============================
-# NAVER: UGC + 로고 검출
+# NAVER: 인기글 (순수 UGC)
 # ==============================
 
 
-def find_ugc_with_logo(driver, logo_detector: YKLogoDetector):
+def find_popular_content(driver, logo_detector: YKLogoDetector):
     results = []
     cards = driver.find_elements(By.CSS_SELECTOR, NAVER_UGC_CARD_SELECTOR)
 
-    # print(f"[UGC] total cards found = {len(cards)}")
+    popular_rank = 0  # 인기글 전용 랭크 카운터
 
-    for idx, card in enumerate(cards, start=1):
-        # 카드 자체 스크린샷
-        # save_element_screenshot(
-        #     card,
-        #     f"debug/ugc_cards/card_{idx}.png",
-        # )
+    for card in cards:
+        # 1️⃣ 브랜드콘텐츠 제외
+        if is_brand_content(card):
+            continue
 
-        text = card.text.lower()
         url = get_card_url(card)
 
-        text_hit = [kw for kw in NAVER_TARGET_KEYWORDS if kw.lower() in text]
-        # print(f"[UGC][{idx}] text_hit={bool(text_hit)} url={url}")
-
-        if text_hit:
-            results.append(
-                {
-                    "section": "ugc_text",
-                    # "rank": idx,
-                    "matched_keywords": text_hit,
-                    "matched_snippet": card.text.replace("\n", " ")[:200],
-                    "url": url,
-                }
-            )
+        # 2️⃣ 지식인 제외
+        if is_kin_content(url):
             continue
+
+        text = card.text.lower()
+        text_hit = [kw for kw in NAVER_TARGET_KEYWORDS if kw.lower() in text]
 
         img_el = get_thumbnail_element_from_card(card)
-        if not img_el:
-            print(f"[UGC][{idx}] ❌ no img element")
-            continue
+        logo_hit = False
+        logo_info = None
 
-        # 썸네일만 따로 스크린샷
-        # save_element_screenshot(
-        #     img_el,
-        #     f"debug/ugc_thumbnails/thumb_{idx}.png",
-        # )
+        if img_el:
+            status, template_name, distance = logo_detector.match(
+                img_el.screenshot_as_png
+            )
 
-        status, template_name, distance = logo_detector.match(img_el.screenshot_as_png)
+            if status in ("same", "similar"):
+                logo_hit = True
+                logo_info = {
+                    "logo_match_type": status,
+                    "template": template_name,
+                    "phash_distance": int(distance),
+                }
 
-        # print(
-        #     f"[PHASH][{idx}] status={status} template={template_name} "
-        #     f"distance={distance} url={url}"
-        # )
+        # 3️⃣ 텍스트 or 로고 매칭 시에만 랭킹 증가
+        if text_hit or logo_hit:
+            popular_rank += 1  #  여기서만 증가
 
-        # 🔴 핵심 변경 지점
-        if status in ("same", "similar"):
+            content_type = resolve_ugc_content_type(url)
+
             results.append(
                 {
-                    "section": "ugc_logo",
-                    # "rank": idx,
-                    "logo_match_type": status,  # same / similar
-                    "template": template_name,
-                    "phash_distance": distance,
+                    "section": "인기글",
+                    "content_type": content_type,
+                    "rank": popular_rank,  # 실제 인기글 내 순위
+                    "source_type": "ugc",
+                    "detect_reason": "text" if text_hit else "logo",
                     "url": url,
+                    **(logo_info or {}),
                 }
             )
 
@@ -300,39 +321,34 @@ def find_ugc_with_logo(driver, logo_detector: YKLogoDetector):
 def main():
     crawler = BaseCrawler()
     keywords = load_keywords()
-
     logo_detector = YKLogoDetector(template_dir="assets/naver_thumbnails")
 
     index_name = f"search_ad_keyword_monitoring-{datetime.now(timezone.utc):%Y-%m-%d}"
 
     try:
         for idx, keyword in enumerate(keywords, start=1):
-            print(f"\n[{idx}] keyword='{keyword}'")
+            print(f"[{idx}] keyword='{keyword}'")
 
             crawler.open(build_naver_mobile_search_url(keyword))
-            time.sleep(4)
+            time.sleep(random.uniform(4.0, 6.0))
 
             ts = now_utc_iso()
             bulk_docs = []
 
-            # 1. 파워링크
             for r in find_naver_powerlink_rank(crawler.driver):
                 r.update({"source": "naver", "query": keyword, "@timestamp": ts})
                 bulk_docs.append(r)
 
-            # 2. 브랜드 콘텐츠
             for r in find_naver_brand_content_rank(crawler.driver):
                 r.update({"source": "naver", "query": keyword, "@timestamp": ts})
                 bulk_docs.append(r)
 
-            # 3. 플레이스
             if has_naver_place_block(crawler.driver):
                 for r in find_naver_place_rank(crawler.driver):
                     r.update({"source": "naver", "query": keyword, "@timestamp": ts})
                     bulk_docs.append(r)
 
-            # 4. UGC + 로고 (항상 탐색)
-            for r in find_ugc_with_logo(crawler.driver, logo_detector):
+            for r in find_popular_content(crawler.driver, logo_detector):
                 r.update({"source": "naver", "query": keyword, "@timestamp": ts})
                 bulk_docs.append(r)
 
