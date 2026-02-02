@@ -71,6 +71,7 @@
 
 ## 프로젝트 구조
 
+```bash
 search-ad-keyword-monitor/
 ├── config/
 │ └── keywords.json # 모니터링 대상 검색 키워드
@@ -88,6 +89,7 @@ search-ad-keyword-monitor/
 │ └── naver_thumbnails/ # 로고 템플릿 이미지
 ├── main.py # 실행 진입점
 └── requirements.txt
+```
 
 ---
 
@@ -124,52 +126,65 @@ sudo apt install -y chromium-browser
 
 # Python 3.12 이상 권장
 
-python3 --version
-
+```bash
 python3 -m venv venv
 source venv/bin/activate
+```
 
 ### 의존성 설치
 
+```bash
 pip install -r requirements.txt
+```
 
 ### 키워드 설정
 
+```bash
 config/keywords.json
 {
-"keywords": [
-"강남형사전문변호사",
-"강제추행변호사",
-"마약변호사"
-]
+  "keywords": [
+    "강남형사전문변호사",
+    "강제추행변호사",
+    "마약변호사"
+  ]
 }
+```
 
 ### 실행 방법
 
 운영 모드 (Elasticsearch 인덱싱)
+
+```bash
 python main.py
+```
+
 테스트 모드 (로그 출력)
+
+```bash
 python main.py --test > main.log
+```
 
 ### 출력 예시 (--test)
 
+```bash
 [2] keyword='강남형사전문변호사'
 [ES MOCK] index=search*ad_keyword_monitoring-2026-01-30
 [
-{
-"section": "파워링크",
-"rank": 2,
-"source": "naver",
-"query": "강남형사전문변호사"
-},
-{
-"section": "플레이스*광고",
-"rank": 1
-},
-{
-"section": "인기글",
-"content_type": "blog",
-"rank": 1,
-"detect_reason": "text"
-}
+  {
+    "section": "파워링크",
+    "rank": 2,
+    "source": "naver",
+    "query": "강남형사전문변호사"
+  },
+  {
+    "section": "플레이스_광고",
+    "rank": 1
+  },
+  {
+    "section": "인기글",
+    "content_type": "blog",
+    "rank": 1,
+    "detect_reason": "text"
+  }
 ]
+```
