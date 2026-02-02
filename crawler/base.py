@@ -5,7 +5,6 @@ class BaseCrawler:
     def __init__(self):
         options = webdriver.ChromeOptions()
         options.binary_location = "/snap/bin/chromium"
-
         options.add_argument("--disable-blink-features=AutomationControlled")
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")

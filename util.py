@@ -1,0 +1,81 @@
+import urllib.parse, json
+from datetime import datetime, timezone
+from pathlib import Path
+from selenium.webdriver.common.by import By
+
+
+def load_keywords():
+    with open("config/keywords.json", encoding="utf-8") as f:
+        return json.load(f)["keywords"]
+
+
+def build_naver_mobile_search_url(keyword: str) -> str:
+    return "https://m.search.naver.com/search.naver?query=" + urllib.parse.quote(
+        keyword
+    )
+
+
+def now_utc_iso():
+    return datetime.now(timezone.utc).isoformat()
+
+
+def save_element_screenshot(element, path: str):
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    element.screenshot(path)
+
+
+def get_thumbnail_element_from_card(card):
+    try:
+        return card.find_element(
+            By.CSS_SELECTOR,
+            "div[data-sds-comp='RectangleImage']:not(.sds-comps-image-circle) img",
+        )
+    except Exception:
+        return None
+
+
+def get_card_url(card):
+    try:
+        a = card.find_element(By.CSS_SELECTOR, "a[data-heatmap-target='.link'][href]")
+        return a.get_attribute("href")
+    except Exception:
+        pass
+
+    try:
+        a = card.find_element(By.CSS_SELECTOR, "a[href*='?art=']")
+        return a.get_attribute("href")
+    except Exception:
+        pass
+
+    try:
+        a = card.find_element(By.CSS_SELECTOR, "a[href]")
+        return a.get_attribute("href")
+    except Exception:
+        return None
+
+
+def is_brand_content(card) -> bool:
+    try:
+        card.find_element(By.CSS_SELECTOR, "a[href*='ader.naver.com']")
+        return True
+    except Exception:
+        pass
+
+    cls = card.get_attribute("class") or ""
+    return "_fe_view_power_content" in cls
+
+
+def resolve_ugc_content_type(url: str) -> str:
+    if not url:
+        return url
+    if "m.cafe.naver.com" in url:
+        return "카페"
+    if "m.blog.naver.com" in url:
+        return "블로그"
+    return url
+
+
+def is_kin_content(url: str) -> bool:
+    if not url:
+        return False
+    return "m.kin.naver.com" in url or "kin.naver.com" in url

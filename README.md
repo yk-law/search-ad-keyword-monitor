@@ -1,173 +1,175 @@
 # search-ad-keyword-monitor
 
-네이버 모바일 검색 광고 키워드 모니터링 자동화 도구
+네이버 모바일 검색 결과 기반 **광고·UGC 노출 모니터링 자동화 도구**
+
+---
 
 ## 개요
 
-네이버 모바일 검색 결과에서 특정 키워드에 대한 광고 노출 순위를 자동으로 추적하는 프로그램입니다.
+`search-ad-keyword-monitor`는  
+**네이버 모바일 검색 결과**에서 특정 키워드에 대해
 
-### 주요 기능
+- 광고(파워링크 / 브랜드콘텐츠)
+- 플레이스(광고 / 일반)
+- UGC(블로그·카페)
 
-- 네이버 모바일 파워링크 순위 추적
-- 브랜드콘텐츠 영역 순위 추적 (개발 중)
-- 2,700개 이상의 키워드 자동 모니터링
-- JSON 기반 키워드 관리
+영역에서 **특정 브랜드(예: YK)가 노출되는지 여부와 상대적 위치를 자동으로 수집·분석**하는 프로그램입니다.
+
+운영 환경에서는 수집 결과를 **Elasticsearch에 적재**하고,  
+테스트 환경에서는 **콘솔 로그 형태로 결과를 확인**할 수 있도록 설계되어 있습니다.
+
+---
+
+## 현재 지원 범위 (2026.01 기준)
+
+### 광고 영역
+
+- ✅ **모바일 파워링크**
+  - 노출 여부
+  - 파워링크 영역 내 순위
+- ✅ **브랜드콘텐츠**
+  - 노출 여부
+  - 브랜드콘텐츠 영역 내 순위
+- ⛔ 브랜드콘텐츠 내부 광고/일반 구분
+  - 네이버 정책상 시각적 구분 불가로 동일 영역 처리
+
+---
+
+### 플레이스 영역
+
+- ✅ **플레이스 광고**
+  - 노출 여부
+  - 광고 슬롯 내 순위 (일반적으로 최대 3개)
+- ✅ **플레이스 일반**
+  - 노출 여부
+  - 일반 플레이스 결과 내 순위
+- ⚠️ 플레이스 영역이 존재하지 않는 키워드도 있음
+  - 자동 감지 후 스킵 처리
+
+---
+
+### UGC 영역 (통합 처리)
+
+> 블로그 + 카페 통합 순위
+
+- ✅ **인기글 / 검색결과 UGC 통합 분석**
+- 지식인(KIN) 콘텐츠 제외
+- 브랜드콘텐츠로 판단되는 UGC 제외
+- 매칭 방식
+  - 텍스트 기반 (제목/본문 키워드)
+  - 이미지 기반 (썸네일 로고 pHash 비교)
+
+#### 결과 타입 분류
+
+| type | 설명                           |
+| ---- | ------------------------------ |
+| blog | 네이버 블로그                  |
+| cafe | 네이버 카페                    |
+| site | 기타 웹문서 (텍스트 기반 매칭) |
+
+---
 
 ## 프로젝트 구조
 
-```
 search-ad-keyword-monitor/
 ├── config/
-│   ├── keywords.json          # 모니터링 대상 키워드 목록
-│   └── constants.py            # 설정 상수 (TARGET_KEYWORDS, 셀렉터 등)
+│ └── keywords.json # 모니터링 대상 검색 키워드
 ├── crawler/
-│   ├── base.py                 # Chrome WebDriver 기본 래퍼
-│   └── naver_mobile.py         # 네이버 모바일 검색 크롤러
-├── runner.py                   # 메인 실행 스크립트
-└── requirements.txt            # Python 패키지 의존성
-```
+│ ├── base.py # Selenium WebDriver 래퍼
+│ ├── args.py # argparse (--test)
+│ ├── es.py # Elasticsearch 인덱싱 모듈
+│ ├── utils.py # 공통 유틸
+│ └── naver/
+│ ├── powerlink.py # 파워링크 분석
+│ ├── brand.py # 브랜드콘텐츠 분석
+│ ├── place.py # 플레이스 분석
+│ └── popular.py # UGC 분석
+├── assets/
+│ └── naver_thumbnails/ # 로고 템플릿 이미지
+├── main.py # 실행 진입점
+└── requirements.txt
 
-## Prerequisites (OS level)
+---
 
-Chromium 기반 브라우저가 시스템에 설치되어 있어야 합니다.
+## 동작 흐름
 
-### Ubuntu / Debian
+1. 키워드별 네이버 모바일 검색 페이지 접속
+2. 영역별 분석 수행
+   - 파워링크
+   - 브랜드콘텐츠
+   - 플레이스(광고 / 일반)
+   - UGC(블로그·카페 통합)
+3. 브랜드 노출 판단
+   - 텍스트 키워드 매칭
+   - 썸네일 로고 이미지 매칭
+4. 결과 수집
+5. 실행 모드에 따라
+   - Elasticsearch 인덱싱 (기본)
+   - 콘솔 출력 (`--test`)
+
+---
+
+## 시스템 요구사항
+
+### OS
+
+Ubuntu / Debian 기준
 
 ```bash
 sudo apt update
 sudo apt install -y chromium-browser
 ```
 
-## 설치 및 실행
+### Python 환경
 
-### 1. Python 환경 설정
-
-```bash
 # Python 3.12 이상 권장
+
 python3 --version
 
-# 가상환경 생성 (선택사항)
 python3 -m venv venv
 source venv/bin/activate
-```
 
-### 2. 의존성 설치
+### 의존성 설치
 
-```bash
 pip install -r requirements.txt
-```
 
-### 3. 설정 파일 수정
+### 키워드 설정
 
-#### config/constants.py
-
-```python
-# 광고주/브랜드 식별 키워드
-TARGET_KEYWORDS = [
-    "yk",
-    "법무법인 yk",
-]
-```
-
-#### config/keywords.json
-
-모니터링할 키워드 목록을 JSON 형식으로 관리합니다.
-
-```json
+config/keywords.json
 {
-  "keywords": [
-    "강제추행변호사",
-    "마약변호사",
-    ...
-  ]
+"keywords": [
+"강남형사전문변호사",
+"강제추행변호사",
+"마약변호사"
+]
 }
-```
 
-### 4. 실행
+### 실행 방법
 
-```bash
-# 전체 키워드 실행
-python3 runner.py
+운영 모드 (Elasticsearch 인덱싱)
+python main.py
+테스트 모드 (로그 출력)
+python main.py --test > main.log
 
-# 테스트 실행 (제한된 개수만)
-# runner.py의 main(limit=10) 수정
-python3 runner.py
-```
+### 출력 예시 (--test)
 
-## 출력 예시
-
-```
-[1] keyword='강제추행변호사', run_key=abc123de
-  ✅ 모바일 파워링크 5번째 노출
-
-[2] keyword='마약변호사', run_key=xyz789fg
-  ❌ 모바일 파워링크 노출 없음
-
-[3] keyword='교통사고전문변호사', run_key=hij456kl
-  ✅ 모바일 파워링크 3번째 노출
-```
-
-## 주요 설정
-
-### config/constants.py
-
-- `TARGET_KEYWORDS`: 광고 내용에서 찾을 키워드 리스트
-- `NAVER_MOBILE_POWERLINK_SELECTOR`: 파워링크 영역 CSS 셀렉터
-- `NAVER_MOBILE_BRAND_CONTENT_SELECTOR`: 브랜드콘텐츠 영역 CSS 셀렉터
-
-### crawler/base.py
-
-Chrome 옵션 설정:
-
-- `--headless=new`: Headless 모드 실행
-- `--no-sandbox`: 샌드박스 비활성화
-- `--disable-gpu`: GPU 가속 비활성화
-
-## 주의사항
-
-- Headless 모드로 실행되므로 브라우저 창이 보이지 않습니다
-- 네이버 검색 결과 페이지 구조 변경 시 셀렉터 업데이트 필요
-- 과도한 요청 시 IP 차단 위험이 있으므로 적절한 딜레이 유지 (현재 3~5초)
-- 키워드 개수가 많을 경우 실행 시간이 오래 걸릴 수 있습니다
-
-## 라이센스
-
-MIT
-
-[검색결과로 뜨는 키워드] - 부동산변호사
-
-      - xxx 관련광고 (파워링크) : 노출 여부, 순위o
-      - 브랜드 콘텐츠 : 노출 여부, 순위o
-
-      - 플레이스 (광고) : 거의 세개있는데 그중에 몇위인지 (없는경우도 있음) / 플레이스가 있을수도 없을수도 있음
-      - 플레이스 : 노출 여부, 순위o
-
-- 검색결과영역 : 카페+블로그, seo(web) - seo 따로 된다면 좋을듯
-- 블로그 : 이름에 yk 포함, 순위x
-- 카페글 : 썸네일에 yk 포함, 순위x
-
-[인기글로 뜨는 키워드] - 강남형사전문변호사
-
-      - xxx 관련광고 (파워링크) : 노출 여부, 순위o
-
-      - 플레이스 (광고) : 거의 세개있는데 그중에 몇위인지 (없는경우도 있음)
-      - 플레이스 : 노출 여부, 순위o
-
-      - 인기글 광고 : 거의 세개있는데 그중에 몇위인지 (없는경우도 있음)
-      - 인기글 (일반글) 블로그 : yk 포함, 순위x
-      - 인기글 (일반글) 카페글 : 썸네일에 yk 포함, 순위x
-
-ugc 통합 영역
-
-- 블로그+카페끼리 묶어서 몇등인지
-  - 지식인 제외
-
-- 결과에 type 추가 (cafe / blog / 아닌거는 site > text로 찾아낸거 )
-
-미성년자성매매 --> 키워드 이런것들은 청소년유해단어라서 얘내는 어떻게 할수있을지 생각해볼것
---> 실제로는 로그인해서 키워드 노출되고있는지 확인한다고 함
-
-천안상간자소송 --> 제안으로 자동으로 검색결과가 바뀌어서 검색됨
---> 검색어 기준으로 키워드 노출되고있는지 판단해야하는 문제 확인해볼것
-
-[[[[인기글에 광고붙어있는거는 브랜드콘텐츠임]]]]
+[2] keyword='강남형사전문변호사'
+[ES MOCK] index=search*ad_keyword_monitoring-2026-01-30
+[
+{
+"section": "파워링크",
+"rank": 2,
+"source": "naver",
+"query": "강남형사전문변호사"
+},
+{
+"section": "플레이스*광고",
+"rank": 1
+},
+{
+"section": "인기글",
+"content_type": "blog",
+"rank": 1,
+"detect_reason": "text"
+}
+]
