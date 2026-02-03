@@ -74,21 +74,18 @@
 ```bash
 search-ad-keyword-monitor/
 ├── config/
-│ └── keywords.json # 모니터링 대상 검색 키워드
+│ ├── keywords.json # 모니터링 대상 키워드 목록
+│ └── constants.py # 브랜드 키워드, CSS 셀렉터 설정
 ├── crawler/
-│ ├── base.py # Selenium WebDriver 래퍼
-│ ├── args.py # argparse (--test)
-│ ├── es.py # Elasticsearch 인덱싱 모듈
-│ ├── utils.py # 공통 유틸
-│ └── naver/
-│ ├── powerlink.py # 파워링크 분석
-│ ├── brand.py # 브랜드콘텐츠 분석
-│ ├── place.py # 플레이스 분석
-│ └── popular.py # UGC 분석
+│ ├── base.py # Chrome WebDriver 래퍼
+│ └── naver_mobile.py # 네이버 모바일 크롤링 로직
 ├── assets/
-│ └── naver_thumbnails/ # 로고 템플릿 이미지
-├── main.py # 실행 진입점
-└── requirements.txt
+│ └── naver_thumbnails/ # 로고 템플릿 이미지 (pHash 비교용)
+├── logo_detector.py # 이미지 기반 로고 탐지
+├── util.py # 공통 유틸리티 함수
+├── main.py # 메인 실행 스크립트
+├── requirements.txt
+└── YKOS/ # 네이버웍스 알림 연동용 (별도 프로젝트)
 ```
 
 ---

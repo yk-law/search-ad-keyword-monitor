@@ -79,3 +79,34 @@ def is_kin_content(url: str) -> bool:
     if not url:
         return False
     return "m.kin.naver.com" in url or "kin.naver.com" in url
+
+
+def get_unexposed_summary(keyword, bulk_docs):
+    now_str = datetime.now().strftime("%m-%d %H:%M")
+
+    # 전체 영역 목록
+    all_sections = {
+        "파워링크",
+        "브랜드콘텐츠",
+        "플레이스_광고",
+        "플레이스_일반",
+        "인기글",
+    }
+
+    # 노출된 영역 수집
+    exposed_sections = set()
+    for item in bulk_docs:
+        section = item.get("section", "")
+        if section:
+            exposed_sections.add(section)
+
+    # 미노출 영역 계산
+    unexposed = all_sections - exposed_sections
+
+    # 미노출 영역 문자열 생성
+    if unexposed:
+        unexposed_str = ", ".join(sorted(unexposed))
+    else:
+        unexposed_str = "없음"
+
+    return f"{now_str} | {keyword} | 미노출영역: {unexposed_str}"
