@@ -18,3 +18,10 @@ NAVER_BRAND_CARD_SELECTOR = "div._fe_view_power_content[data-template-id='ugcIte
 NAVER_UGC_CARD_SELECTOR = "div[data-template-id='ugcItem']"
 NAVER_PLACE_ROOT_SELECTOR = "#place-app-root"
 NAVER_PLACE_CARD_SELECTOR = "li"
+
+
+# ==============================
+# GOOGLE SHEETS
+# ==============================
+# SPREADSHEET_ID = "1kCMnPKJDBrCLo809_qRRnOJKb_2mo5HNrAbALuoJ8cA"
+SPREADSHEET_ID = "1Tx5ovzE-OQ2refhSm1d8Zsr-bUJUEb6yPnwQv-lwmb0"

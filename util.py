@@ -2,6 +2,8 @@ import urllib.parse, json
 from datetime import datetime, timezone
 from pathlib import Path
 from selenium.webdriver.common.by import By
+from google.oauth2.service_account import Credentials
+from googleapiclient.discovery import build
 
 
 def load_keywords():
@@ -9,6 +11,69 @@ def load_keywords():
         return json.load(f)["keywords"]
 
 
+# ==============================
+# GOOGLE SHEETS
+# ==============================
+def load_keywords_by_google_sheet(
+    spreadsheet_id: str,
+    sheet_name: str,
+):
+    SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
+
+    credentials = Credentials.from_service_account_file(
+        "config/google_service_account.json",
+        scopes=SCOPES,
+    )
+
+    service = build("sheets", "v4", credentials=credentials)
+
+    result = (
+        service.spreadsheets()
+        .values()
+        .get(
+            spreadsheetId=spreadsheet_id,
+            range=f"{sheet_name}!A2:A",
+        )
+        .execute()
+    )
+
+    rows = result.get("values", [])
+
+    keywords = [row[0].strip() for row in rows if row and row[0].strip()]
+
+    return keywords
+
+
+def append_results_to_google_sheet(
+    spreadsheet_id: str,
+    rows: list[list],
+    sheet_name: str = "results",
+):
+    """
+    Google Sheets의 results 시트에 row 단위로 append 한다.
+    """
+
+    SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
+
+    credentials = Credentials.from_service_account_file(
+        "config/google_service_account.json",
+        scopes=SCOPES,
+    )
+
+    service = build("sheets", "v4", credentials=credentials)
+
+    service.spreadsheets().values().append(
+        spreadsheetId=spreadsheet_id,
+        range=f"{sheet_name}!A1",
+        valueInputOption="RAW",
+        insertDataOption="INSERT_ROWS",
+        body={"values": rows},
+    ).execute()
+
+
+# ==============================
+# NAVER
+# ==============================
 def build_naver_mobile_search_url(keyword: str) -> str:
     return "https://m.search.naver.com/search.naver?query=" + urllib.parse.quote(
         keyword
