@@ -11,7 +11,7 @@ from crawler.base import BaseCrawler
 from util import (
     load_keywords,
     load_keywords_by_google_sheet,
-    # append_results_to_google_sheet,
+    append_results_to_google_sheet,
     build_naver_mobile_search_url,
     now_utc_iso,
     get_unexposed_summary,
@@ -31,7 +31,14 @@ from crawler.naver_mobile import (
 #     find_google_results,
 # )
 
-from config.constants import ES_HOST, BATCH_SIZE, SPREADSHEET_ID
+from config.constants import (
+    ES_HOST,
+    ES_INDEX_PREFIX,
+    BATCH_SIZE,
+    GOOGLE_SPREADSHEET_ID,
+    GOOGLE_SHEET_NAMES,
+    GOOGLE_OUTPUT_SHEET_MAP,
+)
 
 warnings.filterwarnings("ignore", message=".*pin_memory.*")
 
@@ -121,103 +128,107 @@ def main():
     args = parse_args()
 
     # keywords = load_keywords()
-    keywords = load_keywords_by_google_sheet(
-        spreadsheet_id=SPREADSHEET_ID,
-        sheet_name="지역키",
-    )
-
-    # run_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-    index_name = f"search_ad_keyword_monitoring-{datetime.now(timezone.utc):%Y-%m-%d}"
+    index_name = f"{ES_INDEX_PREFIX}-{datetime.now():%Y-%m-%d}"
 
     # 드라이버 분리 (정답 구조)
     naver_crawler = BaseCrawler()  # snap chromium
     # google_driver = create_google_driver()  # system chrome
-    batch_summaries = []
 
     try:
-        for idx, keyword in enumerate(keywords, start=1):
-            print(f"[{idx}] keyword='{keyword}'")
+        for sheet_name in GOOGLE_SHEET_NAMES:
+            keywords = load_keywords_by_google_sheet(
+                spreadsheet_id=GOOGLE_SPREADSHEET_ID,
+                sheet_name=sheet_name,
+            )
+            output_sheet_name = GOOGLE_OUTPUT_SHEET_MAP.get(
+                sheet_name, f"results_{sheet_name}"
+            )
 
-            bulk_docs = []
+            batch_summaries = []
 
-            # NAVER 크롤링
-            try:
-                bulk_docs.extend(run_naver(naver_crawler.driver, keyword))
-            except Exception as e:
-                print(f"[NAVER ERROR] keyword='{keyword}' reason={e}")
+            for idx, keyword in enumerate(keywords, start=1):
+                print(f"[{sheet_name}][{idx}] keyword='{keyword}'")
 
-            # GOOGLE
-            # try:
-            #     bulk_docs.extend(run_google(google_driver, keyword))
-            # except Exception as e:
-            #     print(f"[GOOGLE ERROR] keyword='{keyword}' reason={e}")
-            #     # Google은 이 구조에서는 재생성까지 필요 없음
-            #     continue
+                start_t = time.time()
+                bulk_docs = []
 
-            if not bulk_docs:
-                continue
+                # NAVER 크롤링
+                try:
+                    bulk_docs.extend(run_naver(naver_crawler.driver, keyword))
+                except Exception as e:
+                    print(f"[NAVER ERROR] keyword='{keyword}' reason={e}")
 
-            # --test arg 일 경우 ES 인덱싱 없이 출력만 수행
-            if args.test:
-                print(
-                    f"[ES MOCK] index={index_name}\n"
-                    f"{json.dumps(bulk_docs, ensure_ascii=False, indent=2)}"
-                )
-                continue
+                elapsed_sec = round(time.time() - start_t, 2)
 
-            # ES 인덱싱
-            index_to_es(index_name, bulk_docs)
+                if not bulk_docs:
+                    continue
 
-            # Google Sheets 결과 저장
-            # rows = []
-            # for item in bulk_docs:
-            #     rows.append(
-            #         [
-            #             run_at,
-            #             keyword,
-            #             item.get("source"),
-            #             item.get("section"),
-            #             item.get("rank"),
-            #             item.get("title"),
-            #             item.get("url"),
-            #         ]
-            #     )
+                if args.test:
+                    print(
+                        f"[ES MOCK] index={index_name}\n"
+                        f"{json.dumps(bulk_docs, ensure_ascii=False, indent=2)}"
+                    )
+                    continue
 
-            # append_results_to_google_sheet(
-            #     spreadsheet_id=SPREADSHEET_ID,
-            #     sheet_name="results",
-            #     rows=rows,
-            # )
+                index_to_es(index_name, bulk_docs)
 
-            # 네이버 웍스 알림 전송
-            summary = get_unexposed_summary(keyword, bulk_docs)
-            batch_summaries.append(summary)
+                # Google Sheets 결과 저장 (시트별로 분리)
+                rows = []
+                for item in bulk_docs:
+                    ts = item.get("@timestamp")
+                    ts_str = (
+                        datetime.fromisoformat(ts)
+                        .astimezone()
+                        .strftime("%Y-%m-%d %H:%M:%S")
+                        if ts
+                        else ""
+                    )
+                    rows.append(
+                        [
+                            ts_str,
+                            elapsed_sec,
+                            keyword,
+                            item.get("source"),
+                            item.get("section"),
+                            item.get("rank"),
+                            item.get("title"),
+                            item.get("url"),
+                        ]
+                    )
 
-            if len(batch_summaries) >= BATCH_SIZE or idx == len(keywords):
-                combined_message = "\n".join(batch_summaries)
-                payload = {
-                    "event_type": "키워드검색결과",
-                    "message": combined_message,
-                }
-
-                subprocess.run(
-                    [
-                        "curl",
-                        "-s",
-                        "-X",
-                        "POST",
-                        "http://localhost:10002/send-event-noti",
-                        "-H",
-                        "Content-Type: application/json",
-                        "-d",
-                        json.dumps(payload, ensure_ascii=False),
-                    ],
-                    check=True,
+                append_results_to_google_sheet(
+                    spreadsheet_id=GOOGLE_SPREADSHEET_ID,
+                    sheet_name=output_sheet_name,
+                    rows=rows,
                 )
 
-                print()
-                batch_summaries = []
+                summary = get_unexposed_summary(keyword, bulk_docs)
+                batch_summaries.append(summary)
 
+                if len(batch_summaries) >= BATCH_SIZE or idx == len(keywords):
+                    combined_message = "\n".join(batch_summaries)
+                    payload = {
+                        "event_type": "키워드검색결과",
+                        "message": f"[{sheet_name}]\n{combined_message}",
+                    }
+
+                    subprocess.run(
+                        [
+                            "curl",
+                            "-s",
+                            "-X",
+                            "POST",
+                            "http://localhost:10002/send-event-noti",
+                            "-H",
+                            "Content-Type: application/json",
+                            "-d",
+                            json.dumps(payload, ensure_ascii=False),
+                        ],
+                        check=True,
+                    )
+
+                    print()
+                    batch_summaries = []
     finally:
         try:
             naver_crawler.close()
