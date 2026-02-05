@@ -1,9 +1,10 @@
-import urllib.parse, json
+import urllib.parse, json, time
 from datetime import datetime, timezone
 from pathlib import Path
 from selenium.webdriver.common.by import By
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 
 
 def load_keywords():
@@ -52,7 +53,6 @@ def append_results_to_google_sheet(
     """
     Google Sheets의 results 시트에 row 단위로 append 한다.
     """
-
     SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 
     credentials = Credentials.from_service_account_file(
@@ -62,13 +62,21 @@ def append_results_to_google_sheet(
 
     service = build("sheets", "v4", credentials=credentials)
 
-    service.spreadsheets().values().append(
-        spreadsheetId=spreadsheet_id,
-        range=f"{sheet_name}!A1",
-        valueInputOption="RAW",
-        insertDataOption="INSERT_ROWS",
-        body={"values": rows},
-    ).execute()
+    for attempt in range(1, 6):
+        try:
+            service.spreadsheets().values().append(
+                spreadsheetId=spreadsheet_id,
+                range=f"{sheet_name}!A1",
+                valueInputOption="RAW",
+                insertDataOption="INSERT_ROWS",
+                body={"values": rows},
+            ).execute()
+            break
+        except HttpError as e:
+            if e.resp.status in (429, 500, 502, 503, 504) and attempt < 5:
+                time.sleep(2**attempt)
+                continue
+            raise
 
 
 # ==============================

@@ -9,7 +9,6 @@ mkdir -p "$LOG_DIR"
 echo "[BOOT] $(date) crawler shell started. shell_pid=$$" >> "$LOG_DIR/monitor.log"
 
 while true; do
-while true; do
   LOG_FILE="$LOG_DIR/monitor-$(date +%F).log"
 
   BATCH_START=$(date +%s)
