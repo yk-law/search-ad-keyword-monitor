@@ -116,8 +116,11 @@ Ubuntu / Debian 기준
 
 ```bash
 sudo apt update
-sudo apt install -y chromium-browser
+sudo apt install -y chromium-browser chromium-chromedriver xvfb
 ```
+
+> `infinite-loop.sh`에서 `xvfb-run`을 사용하므로 `xvfb`가 필요합니다.  
+> `crawler/base.py`는 `/snap/bin/chromium`을 사용합니다.
 
 ### Python 환경
 
@@ -136,29 +139,36 @@ pip install -r requirements.txt
 
 ### 키워드 설정
 
-```bash
-config/keywords.json
-{
-  "keywords": [
-    "강남형사전문변호사",
-    "강제추행변호사",
-    "마약변호사"
-  ]
-}
-```
+키워드는 Google Sheets에서 읽어옵니다.
+
+- 스프레드시트 ID 및 시트 목록은 [config/constants.py](config/constants.py)에서 설정
+- 각 시트의 `A2:A` 범위를 키워드 목록으로 사용
+- 결과는 `GOOGLE_OUTPUT_SHEET_MAP`에 지정된 시트로 append
 
 ### 실행 방법
 
-운영 모드 (Elasticsearch 인덱싱)
+백그라운드 실행 (무한 루프)
 
 ```bash
-python main.py
+./start.sh
+```
+
+중지
+
+```bash
+./stop.sh
+```
+
+단발 실행 (운영 모드)
+
+```bash
+python3 main.py
 ```
 
 테스트 모드 (로그 출력)
 
 ```bash
-python main.py --test > main.log
+python3 main.py --test > main.log
 ```
 
 ### 출력 예시 (--test)
