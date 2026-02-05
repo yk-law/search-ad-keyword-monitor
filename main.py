@@ -18,6 +18,7 @@ from util import (
 )
 
 from crawler.naver_mobile import (
+    ensure_naver_exact_query,
     find_naver_powerlink_rank,
     find_naver_brand_content_rank,
     has_naver_place_block,
@@ -65,6 +66,10 @@ def run_naver(driver, keyword: str):
 
     driver.get(build_naver_mobile_search_url(keyword))
     time.sleep(random.uniform(4.0, 6.0))
+
+    # 제안 검색어 블록이 있으면 원래 키워드로 전환
+    if ensure_naver_exact_query(driver, keyword):
+        time.sleep(random.uniform(1.5, 2.5))
 
     for r in find_naver_powerlink_rank(driver):
         r.update({"source": "naver", "query": keyword, "@timestamp": ts})

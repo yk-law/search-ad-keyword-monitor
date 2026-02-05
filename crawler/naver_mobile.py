@@ -1,3 +1,7 @@
+import urllib.parse
+
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from logo_detector import YKLogoDetector
 
@@ -17,6 +21,41 @@ from config.constants import (
 )
 
 from ocr_util import extract_text_from_image_element
+
+
+def ensure_naver_exact_query(driver, keyword: str, timeout: int = 5) -> bool:
+    """
+    '제안 검색어' 블록이 노출되면, 원래 keyword 링크를 클릭해
+    정확한 검색 결과로 전환한다.
+    """
+    try:
+        container = WebDriverWait(driver, timeout).until(
+            EC.presence_of_element_located(
+                (By.CSS_SELECTOR, "div.sp_nkeyword_suggest, div.sp_nkeyword")
+            )
+        )
+    except Exception:
+        return False
+
+    try:
+        links = container.find_elements(By.CSS_SELECTOR, "a[href*='query=']")
+        target = next((a for a in links if a.text.strip() == keyword), None)
+        if not target:
+            return False
+
+        target.click()
+
+        q = urllib.parse.quote(keyword)
+        try:
+            WebDriverWait(driver, timeout).until(
+                lambda d: f"query={q}" in d.current_url
+            )
+        except Exception:
+            pass
+
+        return True
+    except Exception:
+        return False
 
 
 # ==============================
