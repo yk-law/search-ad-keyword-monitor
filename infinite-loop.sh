@@ -9,7 +9,11 @@ mkdir -p "$LOG_DIR"
 echo "[BOOT] $(date) crawler shell started. shell_pid=$$" >> "$LOG_DIR/monitor.log"
 
 while true; do
-  echo "[INFO] $(date) start crawl" >> "$LOG_DIR/monitor.log"
+while true; do
+  LOG_FILE="$LOG_DIR/monitor-$(date +%F).log"
+
+  BATCH_START=$(date +%s)
+  echo "[INFO] $(date) start crawl" >> "$LOG_FILE"
 
   # 크롬 잔재 정리
   pkill -f chromium || true
@@ -19,16 +23,19 @@ while true; do
 
   # Python 실행 (백그라운드로 띄워 PID 확보)
   PYTHONPATH=. xvfb-run -a -s "-screen 0 412x915x24" \
-    "$VENV_PYTHON" main.py >> "$LOG_DIR/monitor.log" 2>&1 &
+    "$VENV_PYTHON" main.py >> "$LOG_FILE" 2>&1 &
 
   PY_PID=$!
-  echo "[INFO] $(date) python started. pid=$PY_PID" >> "$LOG_DIR/monitor.log"
+  echo "[INFO] $(date) python started. pid=$PY_PID" >> "$LOG_FILE"
 
   # Python 종료 대기
   wait $PY_PID
   EXIT_CODE=$?
 
-  echo "[WARN] $(date) python exited. pid=$PY_PID exit_code=$EXIT_CODE" >> "$LOG_DIR/monitor.log"
+  BATCH_END=$(date +%s)
+  ELAPSED=$((BATCH_END - BATCH_START))
+
+  echo "[WARN] $(date) python exited. pid=$PY_PID exit_code=$EXIT_CODE elapsed=${ELAPSED}s" >> "$LOG_FILE"
 
   sleep 15
 done
