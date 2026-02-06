@@ -26,7 +26,7 @@ NAVER_PLACE_CARD_SELECTOR = "li"
 # ==============================
 # GOOGLE SHEETS
 # ==============================
-GOOGLE_SPREADSHEET_ID = "1Tx5ovzE-OQ2refhSm1d8Zsr-bUJUEb6yPnwQv-lwmb0"
+GOOGLE_SPREADSHEET_ID = "15pWYWNvk42DqlrBwK4k3v0Teq5QIK6e15RgWz6OPOus"
 GOOGLE_SHEET_NAMES = [
     "전국지사키",
     "지역키",
