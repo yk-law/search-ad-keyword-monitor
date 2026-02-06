@@ -1,0 +1,8 @@
+# VM별로 크롤링 대상 시트를 분리하기 위한 로컬 오버라이드 파일
+# 이 파일을 복사해 constants.local.py로 만들고, 각 VM에서 값만 다르게 설정
+
+VM_NAME = ""
+GOOGLE_SHEET_NAMES = ["xx"]
+GOOGLE_OUTPUT_SHEET_MAP = {
+    "xx": "xx_RESULT",
+}

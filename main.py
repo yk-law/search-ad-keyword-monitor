@@ -37,6 +37,9 @@ from config.constants import (
     ES_INDEX_PREFIX,
     BATCH_SIZE,
     GOOGLE_SPREADSHEET_ID,
+)
+from config.vm_google_sheet_setting import (
+    VM_NAME,
     GOOGLE_SHEET_NAMES,
     GOOGLE_OUTPUT_SHEET_MAP,
 )
@@ -204,6 +207,7 @@ def main():
                     rows = [
                         [
                             datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                            VM_NAME,
                             elapsed_sec,
                             keyword,
                             "naver",
@@ -236,6 +240,7 @@ def main():
                     rows.append(
                         [
                             ts_str,
+                            VM_NAME,
                             elapsed_sec,
                             keyword,
                             item.get("source"),

@@ -22,6 +22,7 @@ output/*.xlsx
 .DS_Store
 Thumbs.db
 config/google_service_account.json
+config/vm_google_sheet_setting.py
 
 # logs
 logs/
