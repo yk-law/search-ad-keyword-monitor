@@ -22,3 +22,6 @@ output/*.xlsx
 .DS_Store
 Thumbs.db
 config/google_service_account.json
+
+# logs
+logs/
