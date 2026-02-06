@@ -28,14 +28,14 @@ NAVER_PLACE_CARD_SELECTOR = "li"
 # ==============================
 GOOGLE_SPREADSHEET_ID = "1Tx5ovzE-OQ2refhSm1d8Zsr-bUJUEb6yPnwQv-lwmb0"
 GOOGLE_SHEET_NAMES = [
-    "전쟁키",
-    "지역키",
     "전국지사키",
+    "지역키",
     "집중키",
+    "전쟁키",
 ]
 GOOGLE_OUTPUT_SHEET_MAP = {
-    "전쟁키": "전쟁키_RESULT",
-    "지역키": "지역키_RESULT",
     "전국지사키": "전국지사키_RESULT",
+    "지역키": "지역키_RESULT",
     "집중키": "집중키_RESULT",
+    "전쟁키": "전쟁키_RESULT",
 }

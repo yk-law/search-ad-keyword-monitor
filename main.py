@@ -1,6 +1,7 @@
 import warnings
 import time, random, json, argparse, subprocess
 
+from anyio import Path
 from elasticsearch import Elasticsearch
 from elasticsearch.helpers import bulk
 from datetime import datetime, timezone
@@ -67,12 +68,18 @@ def index_to_es(index_name: str, docs: list[dict]):
 # ==============================
 # NAVER
 # ==============================
-def run_naver(driver, keyword: str):
+def run_naver(driver, keyword: str, debug: bool = False):
     ts = now_utc_iso()
     docs = []
 
     driver.get(build_naver_mobile_search_url(keyword))
     time.sleep(random.uniform(4.0, 6.0))
+
+    if debug:
+        Path("debug").mkdir(parents=True, exist_ok=True)
+        driver.save_screenshot(f"debug/{keyword}_page.png")
+        with open(f"debug/{keyword}_page.html", "w", encoding="utf-8") as f:
+            f.write(driver.page_source)
 
     # 제안 검색어 블록이 있으면 원래 키워드로 전환
     if ensure_naver_exact_query(driver, keyword):
@@ -127,7 +134,6 @@ def run_naver(driver, keyword: str):
 def main():
     args = parse_args()
 
-    # keywords = load_keywords()
     index_name = f"{ES_INDEX_PREFIX}-{datetime.now():%Y-%m-%d}"
 
     # 드라이버 분리 (정답 구조)
@@ -135,6 +141,28 @@ def main():
     # google_driver = create_google_driver()  # system chrome
 
     try:
+        if args.test:
+            keywords = load_keywords()
+            for idx, keyword in enumerate(keywords, start=1):
+                print(f"[TEST][{idx}] keyword='{keyword}'")
+
+                bulk_docs = []
+                try:
+                    bulk_docs.extend(
+                        run_naver(naver_crawler.driver, keyword, debug=True)
+                    )
+                except Exception as e:
+                    print(f"[NAVER ERROR] keyword='{keyword}' reason={e}")
+
+                if not bulk_docs:
+                    continue
+
+                print(
+                    f"[ES MOCK] index={index_name}\n"
+                    f"{json.dumps(bulk_docs, ensure_ascii=False, indent=2)}"
+                )
+            return
+
         for sheet_name in GOOGLE_SHEET_NAMES:
             keywords = load_keywords_by_google_sheet(
                 spreadsheet_id=GOOGLE_SPREADSHEET_ID,
@@ -151,22 +179,44 @@ def main():
 
                 start_t = time.time()
                 bulk_docs = []
+                last_error = None
 
                 # NAVER 크롤링
-                try:
-                    bulk_docs.extend(run_naver(naver_crawler.driver, keyword))
-                except Exception as e:
-                    print(f"[NAVER ERROR] keyword='{keyword}' reason={e}")
+                for attempt in range(1, 4):
+                    try:
+                        bulk_docs.extend(run_naver(naver_crawler.driver, keyword))
+                        break
+                    except Exception as e:
+                        last_error = e
+                        if "stale element" in str(e).lower() and attempt < 3:
+                            time.sleep(1.5)
+                            continue
+                        print(
+                            f"[NAVER ERROR] keyword='{keyword}' reason={e} (attempt={attempt})"
+                        )
+                        bulk_docs = []
+                        break
 
                 elapsed_sec = round(time.time() - start_t, 2)
 
                 if not bulk_docs:
-                    continue
-
-                if args.test:
-                    print(
-                        f"[ES MOCK] index={index_name}\n"
-                        f"{json.dumps(bulk_docs, ensure_ascii=False, indent=2)}"
+                    # 실패 행 기록
+                    rows = [
+                        [
+                            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                            elapsed_sec,
+                            keyword,
+                            "naver",
+                            "ERROR",
+                            "",
+                            "",
+                            str(last_error)[:200] if last_error else "unknown error",
+                        ]
+                    ]
+                    append_results_to_google_sheet(
+                        spreadsheet_id=GOOGLE_SPREADSHEET_ID,
+                        sheet_name=output_sheet_name,
+                        rows=rows,
                     )
                     continue
 
