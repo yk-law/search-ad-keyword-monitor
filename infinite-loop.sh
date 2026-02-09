@@ -1,6 +1,7 @@
 #!/bin/bash
 
-BASE_DIR=/home/ccaca/search-ad-keyword-monitor
+
+BASE_DIR="$(cd "$(dirname "$0")" && pwd)"
 VENV_PYTHON=$BASE_DIR/venv/bin/python
 LOG_DIR=$BASE_DIR/logs
 

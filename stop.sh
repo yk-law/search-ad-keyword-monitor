@@ -1,6 +1,6 @@
 #!/bin/bash
 
-BASE_DIR=/home/ccaca/search-ad-keyword-monitor
+BASE_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 echo "[STOP] stopping search-ad-keyword-monitor..."
 
