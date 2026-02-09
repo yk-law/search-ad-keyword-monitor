@@ -44,7 +44,6 @@ from config.vm_google_sheet_setting import (
 )
 
 warnings.filterwarnings("ignore", message=".*pin_memory.*")
-KST = timezone(timedelta(hours=9))
 
 # es = Elasticsearch(ES_HOST)
 
@@ -138,7 +137,7 @@ def run_naver(driver, keyword: str, debug: bool = False):
 def main():
     args = parse_args()
 
-    index_name = f"{ES_INDEX_PREFIX}-{datetime.now(KST):%Y-%m-%d}"
+    index_name = f"{ES_INDEX_PREFIX}-{datetime.now():%Y-%m-%d}"
 
     # 드라이버 분리 (정답 구조)
     naver_crawler = BaseCrawler()  # apt chromium
@@ -207,7 +206,9 @@ def main():
                     # 실패 행 기록
                     rows = [
                         [
-                            datetime.now(KST).strftime("%Y-%m-%d %H:%M:%S"),
+                            datetime.now(timezone(timedelta(hours=9))).strftime(
+                                "%Y-%m-%d %H:%M:%S"
+                            ),
                             VM_NAME,
                             elapsed_sec,
                             keyword,
@@ -233,7 +234,7 @@ def main():
                     ts = item.get("@timestamp")
                     ts_str = (
                         datetime.fromisoformat(ts)
-                        .astimezone()
+                        .astimezone(timezone(timedelta(hours=9)))
                         .strftime("%Y-%m-%d %H:%M:%S")
                         if ts
                         else ""
