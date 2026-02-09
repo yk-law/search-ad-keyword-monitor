@@ -4,30 +4,76 @@ BASE_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 echo "[STOP] stopping search-ad-keyword-monitor..."
 
-# 1. infinite-loop.sh 먼저 강제 종료 (재기동 방지)
-pkill -9 -f "$BASE_DIR/infinite-loop.sh" && \
-  echo "[STOP] infinite-loop.sh killed"
+# 1. infinite-loop.sh (bash supervisor) 종료
+pkill -f "$BASE_DIR/infinite-loop.sh" && \
+  echo "[STOP] infinite-loop.sh stopped"
 
-sleep 1
+sleep 2
 
-# 2. 크롤러용 main.py만 종료 (알림 서버 제외)
-# 조건:
-#  - BASE_DIR 경로 포함
-#  - '--port 10002' 없는 프로세스만
+# 2. Python main.py 종료
+#!/bin/bash
+
+BASE_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+echo "[STOP] stopping search-ad-keyword-monitor..."
+
+# 1. infinite-loop.sh (bash supervisor) 종료
+pkill -f "$BASE_DIR/infinite-loop.sh" && \
+  echo "[STOP] infinite-loop.sh stopped"
+
+sleep 2
+
+# 2. Python main.py 종료
 ps -ef \
-  | grep "$BASE_DIR/main.py" \
+  | grep "python.*main.py" \
   | grep -v grep \
-  | grep -v "--port 10002" \
   | awk '{print $2}' \
   | xargs -r kill -9 && \
-  echo "[STOP] crawler main.py killed"
+  echo "[STOP] python main.py stopped"
+
+sleep 2
+
+# 3. xvfb-run 종료
+pkill -f "xvfb-run" && \
+  echo "[STOP] xvfb stopped"
 
 sleep 1
 
-# 3. chromium 계열 강제 정리 (남아 있으면만)
-pkill -9 -f "/snap/bin/chromium" || true
-pkill -9 -f "chromium" || true
+# 4. chromedriver 종료
+pkill -f "chromedriver" && \
+  echo "[STOP] chromedriver stopped"
 
+sleep 1
+
+# 5. chromium 종료 (최종 정리)
+pkill -f "chromium-browser|/snap/chromium" && \
+  echo "[STOP] chromium stopped"
+
+# 6. zombie cleanup (부모 죽었는데 남은 경우 대비)
 sleep 1
 
 echo "[STOP] done."
+
+
+
+# 3. xvfb-run 종료
+pkill -f "xvfb-run" && \
+  echo "[STOP] xvfb stopped"
+
+sleep 1
+
+# 4. chromedriver 종료
+pkill -f "chromedriver" && \
+  echo "[STOP] chromedriver stopped"
+
+sleep 1
+
+# 5. chromium 종료 (최종 정리)
+pkill -f "chromium-browser|/snap/chromium" && \
+  echo "[STOP] chromium stopped"
+
+# 6. zombie cleanup (부모 죽었는데 남은 경우 대비)
+sleep 1
+
+echo "[STOP] done."
+
