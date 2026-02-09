@@ -18,7 +18,7 @@ pysocks==1.7.1
 selenium==4.16.0
 tinycss2==1.4.0
 tomli==2.4.0
-torchaudio==2.10.0+cpu
+torchaudio==2.10.0
 triton==3.6.0
 uvicorn==0.40.0
 webdriver-manager==4.0.2
