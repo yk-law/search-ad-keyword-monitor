@@ -1,5 +1,4 @@
-import warnings
-import time, random, json, argparse, subprocess
+import warnings, time, random, json, argparse, subprocess, requests
 
 from anyio import Path
 from elasticsearch import Elasticsearch
@@ -46,7 +45,7 @@ from config.vm_google_sheet_setting import (
 
 warnings.filterwarnings("ignore", message=".*pin_memory.*")
 
-es = Elasticsearch(ES_HOST)
+# es = Elasticsearch(ES_HOST)
 
 
 # ==============================
@@ -63,8 +62,9 @@ def parse_args():
 
 
 def index_to_es(index_name: str, docs: list[dict]):
-    actions = [{"_index": index_name, "_source": doc} for doc in docs]
-    bulk(es, actions)
+    for doc in docs:
+        resp = requests.post(ES_HOST, json=doc, timeout=10)
+        resp.raise_for_status()
     print(f"[ES INDEX] index={index_name}, docs={len(docs)}")
 
 
