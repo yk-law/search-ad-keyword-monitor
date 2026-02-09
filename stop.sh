@@ -13,7 +13,7 @@ sleep 2
 # 2. Python main.py 종료 ( --port 10002 제외 )
 ps -ef \
   | grep "python.*main.py" \
-  | grep -v "--port 10002" \
+  | grep -v -- "--port 10002" \
   | grep -v grep \
   | awk '{print $2}' \
   | xargs -r kill -9 && \
