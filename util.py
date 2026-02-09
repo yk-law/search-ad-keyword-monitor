@@ -1,5 +1,5 @@
 import urllib.parse, json, time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from selenium.webdriver.common.by import By
 from google.oauth2.service_account import Credentials
@@ -155,7 +155,7 @@ def is_kin_content(url: str) -> bool:
 
 
 def get_unexposed_summary(keyword, bulk_docs):
-    now_str = datetime.now().strftime("%m-%d %H:%M")
+    now_str = datetime.now(timezone(timedelta(hours=9))).strftime("%m-%d %H:%M")
 
     # 전체 영역 목록
     all_sections = {
