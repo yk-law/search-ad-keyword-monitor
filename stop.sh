@@ -21,23 +21,17 @@ ps -ef \
 
 sleep 2
 
-# 3. xvfb-run 종료
-pkill -f "xvfb-run" && \
-  echo "[STOP] xvfb stopped"
-
-sleep 1
-
-# 4. chromedriver 종료
+# 3. chromedriver 종료
+# (좀비는 부모 종료 시 자동 정리, 살아있는 경우만 대비)
 pkill -f "chromedriver" && \
   echo "[STOP] chromedriver stopped"
 
 sleep 1
 
-# 5. chromium 종료 (최종 정리)
+# 4. chromium 종료 (최종 정리)
 pkill -f "chromium-browser|/snap/chromium" && \
   echo "[STOP] chromium stopped"
 
 sleep 1
 
 echo "[STOP] done."
-
