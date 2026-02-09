@@ -1,7 +1,7 @@
 # ==============================
 # ElasticSearch 설정
 # ==============================
-ES_HOST = "http://localhost:9200"
+ES_HOST = "https://stats.yklawfirm.co.kr:50110/search_ad_keyword_monitoring"
 ES_INDEX_PREFIX = "search_ad_keyword_monitoring"
 BATCH_SIZE = 10
 
