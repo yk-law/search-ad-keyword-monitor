@@ -116,11 +116,12 @@ Ubuntu / Debian 기준
 
 ```bash
 sudo apt update
-sudo apt install -y chromium-browser chromium-chromedriver xvfb
+sudo apt install -y snapd
+sudo snap install chromium
 ```
 
-> `infinite-loop.sh`에서 `xvfb-run`을 사용하므로 `xvfb`가 필요합니다.  
-> `crawler/base.py`는 `/snap/bin/chromium`을 사용합니다.
+> Ubuntu에서는 chromium을 apt로 정상 설치할 수 없음
+> 본 프로젝트는 snap chromium + Selenium Manager 조합을 사용합니다.
 
 ### Python 환경
 
