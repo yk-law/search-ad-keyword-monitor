@@ -1,0 +1,49 @@
+NWORKS:
+  NWORKS_CLIENT_ID: "pb8yJiX33cNbDKCsNaxM"
+  NWORKS_CLIENT_SECRET: "ENenvUqBh9"
+  NWORKS_SERVICE_ACCOUNT: "in5gr.serviceaccount@ykp.kr"
+  NWORKS_PRIVATE_KEY_PATH: "{YKOS_HOME}/apps/noti/nworks/private_20250115153916.key"
+  NWORKS_BOT_ID: "9347464"
+
+#NWORKS:
+#  NWORKS_CLIENT_ID: "WKd5BXrPy0dQ0FgEUVoL"
+#  NWORKS_CLIENT_SECRET: "w1tfYmHJkh"
+#  NWORKS_SERVICE_ACCOUNT: "gotpl.serviceaccount@yklaw.net"
+#  NWORKS_PRIVATE_KEY_PATH: "{YKOS_HOME}/apps/noti/nworks/private_20250124130908.key"
+#  NWORKS_BOT_ID: "9390606"
+
+LOGGING:
+  FILE_PATH: {YKOS_HOME}/logs
+  MAX_BACKUP_COUNT: 3
+
+NOTIFICATIONS:
+  - EVENT_TYPE: ["상담일정등록", "상담일정변경", "상담예약취소", "미방문승인요청"]
+    ARGS:
+      - "will_visit_org_code=*&inci_major_category=*"
+    CHAT_UID: "8cb27a6b-b42c-5ea0-bd10-840f96a42a75"
+  - EVENT_TYPE: ["신규상담등록", "신규상담정보변경", "선임등록", "계약정보변경", "미선임등록", "추심정보변경"]
+    ARGS:
+      - "visit_org_code=*&inci_major_category=*"
+    CHAT_UID: "8cb27a6b-b42c-5ea0-bd10-840f96a42a75"
+  - EVENT_TYPE: ["성공보수등록", "성공보수변경", "성공보수추심정보변경"]
+    ARGS:
+      - "inci_org_code=*&inci_major_category=*"
+    CHAT_UID: "8cb27a6b-b42c-5ea0-bd10-840f96a42a75"
+  - EVENT_TYPE: ["사임요청"]
+    ARGS:
+      - "inci_org_code=*&inci_major_category=*"
+    CHAT_UID: "8cb27a6b-b42c-5ea0-bd10-840f96a42a75"
+  - EVENT_TYPE: ["종결요청"]
+    ARGS:
+      - "inci_org_code=*&inci_major_category=*"
+    CHAT_UID: "8cb27a6b-b42c-5ea0-bd10-840f96a42a75"
+  - EVENT_TYPE: "부서배당등록"
+    ARGS:
+      - "org_assign_org_code=*"
+    CHAT_UID: "8cb27a6b-b42c-5ea0-bd10-840f96a42a75"
+  - EVENT_TYPE: "부서배당변경"
+    ARGS:
+      - "org_assign_org_code=*"
+    CHAT_UID: "8cb27a6b-b42c-5ea0-bd10-840f96a42a75"
+  - EVENT_TYPE: "홈페이지인입등록"
+    CHAT_UID: "8cb27a6b-b42c-5ea0-bd10-840f96a42a75"
