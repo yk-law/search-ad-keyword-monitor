@@ -140,7 +140,7 @@ def main():
     index_name = f"{ES_INDEX_PREFIX}-{datetime.now():%Y-%m-%d}"
 
     # 드라이버 분리 (정답 구조)
-    naver_crawler = BaseCrawler()  # snap chromium
+    naver_crawler = BaseCrawler()  # apt chromium
     # google_driver = create_google_driver()  # system chrome
 
     try:

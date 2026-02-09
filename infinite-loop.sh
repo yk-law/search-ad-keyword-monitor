@@ -1,41 +1,54 @@
 #!/bin/bash
 
+# ==============================
+# search-ad-keyword-monitor
+# infinite loop runner
+# (Google Chrome + headless)
+# ==============================
 
 BASE_DIR="$(cd "$(dirname "$0")" && pwd)"
-VENV_PYTHON=$BASE_DIR/venv/bin/python
-LOG_DIR=$BASE_DIR/logs
+VENV_PYTHON="$BASE_DIR/venv/bin/python"
+LOG_DIR="$BASE_DIR/logs"
 
 mkdir -p "$LOG_DIR"
 
-echo "[BOOT] $(date) crawler shell started. shell_pid=$$" >> "$LOG_DIR/monitor.log"
+echo "[BOOT] $(date '+%Y-%m-%d %H:%M:%S') crawler shell started. shell_pid=$$" \
+  >> "$LOG_DIR/monitor.log"
 
 while true; do
   LOG_FILE="$LOG_DIR/monitor-$(date +%F).log"
 
   BATCH_START=$(date +%s)
-  echo "[INFO] $(date) start crawl" >> "$LOG_FILE"
+  echo "[INFO] $(date '+%Y-%m-%d %H:%M:%S') start crawl" >> "$LOG_FILE"
 
-  # 크롬 잔재 정리
-  pkill -f chromium || true
-  rm -rf /tmp/.org.chromium.Chromium.scoped_dir.*
+  # ==============================
+  # Chrome 잔재 정리 (Google Chrome 기준)
+  # ==============================
+  pkill -f google-chrome || true
+  pkill -f chromedriver || true
+  rm -rf /tmp/.com.google.Chrome.*
+  rm -rf /tmp/ChromeProfile.*
 
   cd "$BASE_DIR" || exit 1
 
-  # Python 실행 (백그라운드로 띄워 PID 확보)
-  PYTHONPATH=. xvfb-run -a -s "-screen 0 412x915x24" \
-    "$VENV_PYTHON" main.py >> "$LOG_FILE" 2>&1 &
+  # ==============================
+  # Python 실행 (headless Chrome)
+  # ==============================
+  PYTHONPATH=. "$VENV_PYTHON" main.py >> "$LOG_FILE" 2>&1 &
 
   PY_PID=$!
-  echo "[INFO] $(date) python started. pid=$PY_PID" >> "$LOG_FILE"
+  echo "[INFO] $(date '+%Y-%m-%d %H:%M:%S') python started. pid=$PY_PID" >> "$LOG_FILE"
 
   # Python 종료 대기
-  wait $PY_PID
+  wait "$PY_PID"
   EXIT_CODE=$?
 
   BATCH_END=$(date +%s)
   ELAPSED=$((BATCH_END - BATCH_START))
 
-  echo "[WARN] $(date) python exited. pid=$PY_PID exit_code=$EXIT_CODE elapsed=${ELAPSED}s" >> "$LOG_FILE"
+  echo "[WARN] $(date '+%Y-%m-%d %H:%M:%S') python exited. pid=$PY_PID exit_code=$EXIT_CODE elapsed=${ELAPSED}s" \
+    >> "$LOG_FILE"
 
+  # 다음 배치까지 대기
   sleep 15
 done
