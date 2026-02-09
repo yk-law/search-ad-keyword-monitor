@@ -6,7 +6,8 @@ import asyncio
 import argparse
 import os, sys
 import uvicorn
-import version
+
+# import version
 import config
 from config import NWORKS, find_chat_uids, load_config
 from naverworks_api import NaverWorksAPI
