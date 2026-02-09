@@ -1,0 +1,1 @@
+nohup python3 main.py --port 10002 > noti.out 2> noti.err &
