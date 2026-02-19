@@ -1,12 +1,20 @@
 #!/bin/bash
 
 BASE_DIR="$(cd "$(dirname "$0")" && pwd)"
-LOG_DIR=$BASE_DIR/logs
+LOG_DIR="$BASE_DIR/logs"
 
 mkdir -p "$LOG_DIR"
+
+# ==============================
+# 중복 실행 방지
+# ==============================
+if pgrep -f "$BASE_DIR/infinite-loop.sh" > /dev/null; then
+  echo "infinite-loop.sh is already running."
+  exit 1
+fi
 
 nohup "$BASE_DIR/infinite-loop.sh" \
   > "$LOG_DIR/infinite-loop-$(date +%F).out" \
   2>&1 &
-  
+
 echo "started infinite-loop.sh (pid=$!)"
